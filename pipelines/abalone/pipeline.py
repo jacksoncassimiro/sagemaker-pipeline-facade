@@ -27,17 +27,16 @@ if __name__ == '__main__':
     bucket = 'turin-complete-experiments'
     prefix = 'abalone'
     model_package_group_name = 'Abalone'
+    base_uri = f"s3://{bucket}/{prefix}/data"
 
     os.environ['AWS_DEFAULT_REGION'] = region
 
-    base_uri = f"s3://{bucket}/{prefix}/data"
     input_data_uri = sagemaker.s3.S3Uploader.upload(
         local_path='data.csv',
         desired_s3_uri=base_uri,
     )
     print(input_data_uri)
 
-    base_uri = f"s3://{bucket}/{prefix}/data"
     batch_data_uri = sagemaker.s3.S3Uploader.upload(
         local_path='batch.csv',
         desired_s3_uri=base_uri,

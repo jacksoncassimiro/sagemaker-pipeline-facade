@@ -4,22 +4,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-from sagemaker_pipeline_facade.step import Param, Step
+from sagemaker_pipeline_facade.processing_step import ProcessingFacadeStep
 
 
-class CreateDatasetStep(Step):
-
-    def inputs(self):
-        return [
-            Param(name='data', source='../abalone/data.csv'),
-        ]
-
-    def outputs(self):
-        return [
-            Param(name='train'),
-            Param(name='validation'),
-            Param(name='test'),
-        ]
+class PreprocessingFacadeStep(ProcessingFacadeStep):
 
     def execute(self):
         columns = {
@@ -36,6 +24,7 @@ class CreateDatasetStep(Step):
 
         df = self.read_input_csv(
             'data',
+            'data.csv',
             header=None,
             names=list(columns.keys()),
             dtype=columns

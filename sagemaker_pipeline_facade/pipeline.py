@@ -1,34 +1,35 @@
-import os
-import pickle
+from datetime import datetime
 
-from sagemaker.processing import ProcessingInput, ProcessingOutput
-from sagemaker.sklearn import SKLearnProcessor
+import pytz
 from sagemaker.workflow.pipeline import Pipeline as SageMakerPipeline
-from sagemaker.workflow.steps import ProcessingStep
 
-from sagemaker_pipeline_facade import LIB_PATH
-from sagemaker_pipeline_facade.step import Step
+from sagemaker_pipeline_facade.processing_step import ProcessingFacadeStep
+from sagemaker_pipeline_facade.processing_step_parser import \
+    ProcessingParser
+from sagemaker_pipeline_facade.training_step import TrainingFacadeStep
 
 
 class Pipeline:
 
-    def __init__(self, name, root_dir, role, pipeline_session):
-        print(f'Running script: {os.getcwd()}')
-
+    def __init__(
+            self, name, root_dir, bucket, role, region, pipeline_session
+    ):
         self.name = name
         self.root_path = root_dir
+        self.bucket = bucket
         self.role = role
+        self.region = region
         self.pipeline_session = pipeline_session
 
+        current_date = datetime.now(pytz.utc).isoformat()[0:-6]
+        self.base_s3_path = (
+            f's3://{self.bucket}/pipelines/{self.name}/{current_date}'
+        )
         self.steps = []
-        self.processor = None
-
-        self.current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.export_dir = f'{self.current_dir}/export'
 
     def execute(self):
         sagemaker_pipeline = SageMakerPipeline(
-            name='AbaloneNew',
+            name=self.name,
             steps=self.steps,
         )
 
@@ -36,75 +37,19 @@ class Pipeline:
         execution = sagemaker_pipeline.start()
         print(execution)
 
-    def get_processor(self):
-        if not self.processor:
-            self.processor = SKLearnProcessor(
-                framework_version='1.2-1',
-                instance_type="ml.m5.xlarge",
-                instance_count=1,
-                base_job_name="sklearn-abalone-process",
-                role=self.role,
-                sagemaker_session=self.pipeline_session,
-            )
-        return self.processor
+    def add_processing_step(self, step: ProcessingFacadeStep):
+        ProcessingParser(
+            root_dir=self.root_path,
+            role=self.role,
+            pipeline_session=self.pipeline_session
+        ).parse(step)
+        self.steps.append(step.parsed_step)
 
-    def add_processing_step(self, step: Step):
-        default_inputs = [
-            ProcessingInput(
-                input_name='lib',
-                source=LIB_PATH,
-                destination=f'{step.code_dir}/{LIB_PATH.split("/")[-1]}'
-            ),
-            ProcessingInput(
-                input_name='root',
-                source=self.root_path,
-                destination=f'{step.code_dir}/{self.root_path.split("/")[-1]}'
-            )
-        ]
-
-        step_inputs = [
-            ProcessingInput(
-                input_name=item.name if item.name else f'input_{index}',
-                source=item.source,
-                destination=f'{step.input_dir}/{item.name}'
-            )
-            for index, item in enumerate(step.inputs())
-        ]
-
-        processor = self.get_processor()
-        args = processor.run(
-            inputs=default_inputs + step_inputs,
-            outputs=[
-                ProcessingOutput(
-                    output_name=item.name if item.name else f'output_{index}',
-                    source=f'{step.output_dir}/{item.name}'
-                )
-                for index, item in enumerate(step.outputs())
-            ],
-            code=self.export_processing_step(step),
+    def add_training_step(self, step: TrainingFacadeStep):
+        step.parse(
+            base_s3_path=self.base_s3_path,
+            role=self.role,
+            region=self.region,
+            pipeline_session=self.pipeline_session
         )
-
-        self.steps.append(
-            ProcessingStep(
-                name=step.name(), step_args=args
-            )
-        )
-
-    def export_processing_step(self, step):
-        template = os.path.join(self.current_dir, 'processing_step_template.py')
-        content = ''
-
-        with open(template, 'r') as file:
-            content = file.read()
-
-        content = content.replace('"<serialized-step>"', str(pickle.dumps(step)))
-
-        if not os.path.exists(self.export_dir):
-            os.mkdir(self.export_dir)
-
-        step_file_path = os.path.join(self.export_dir, f'{step.name()}.py')
-
-        with open(step_file_path, 'w') as file:
-            file.write(content)
-
-        return step_file_path
+        self.steps.append(step.parsed_step)

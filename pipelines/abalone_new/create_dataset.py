@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sagemaker_pipeline_facade.processing_step import ProcessingFacadeStep
 
 
-class PreprocessingFacadeStep(ProcessingFacadeStep):
+class CreateDatasetFacadeStep(ProcessingFacadeStep):
 
     def execute(self):
         columns = {

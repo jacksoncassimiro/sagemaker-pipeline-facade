@@ -99,8 +99,12 @@ class ProcessingStepParser:
         with open(template, 'r') as file:
             content = file.read()
 
+        step_copied = self.copy(step)
+        for param in step_copied.inputs:
+            param.source = None
+
         content = content.replace(
-            '"<serialized-step>"', str(pickle.dumps(step))
+            '"<serialized-step>"', str(pickle.dumps(step_copied))
         )
 
         if not os.path.exists(export_dir):
@@ -112,3 +116,7 @@ class ProcessingStepParser:
             file.write(content)
 
         return step_file_path
+
+    @staticmethod
+    def copy(arg):
+        return pickle.loads(pickle.dumps(arg))

@@ -4,6 +4,12 @@ import pytz
 from sagemaker.workflow.pipeline import Pipeline as SageMakerPipeline
 
 from sagemaker_pipeline_facade import FacadeStep, Param
+from sagemaker_pipeline_facade.batch_transform_step import (
+    BatchTransformFacadeStep
+)
+from sagemaker_pipeline_facade.batch_transform_step_parser import (
+    BatchTransformStepParser
+)
 from sagemaker_pipeline_facade.processing_step import ProcessingFacadeStep
 from sagemaker_pipeline_facade.processing_step_parser import (
     ProcessingStepParser
@@ -81,3 +87,13 @@ class Pipeline:
             pipeline_session=self.pipeline_session
         ).parse(step)
         self.steps.append(step.parsed_step)
+
+    def add_batch_transform_step(self, step: BatchTransformFacadeStep):
+        BatchTransformStepParser(
+            base_s3_path=self.base_s3_path,
+            image_uri=self.image_uri,
+            role=self.role,
+            pipeline_session=self.pipeline_session
+        ).parse(step)
+        self.steps.append(step.parsed_model_step)
+        self.steps.append(step.parsed_transform_step)

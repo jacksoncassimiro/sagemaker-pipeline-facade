@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+from sagemaker_pipeline_facade.batch_transform_step import (
+    BatchTransformFacadeStep
+)
 from sagemaker.workflow.pipeline_context import PipelineSession
 
 from pipelines.abalone_new.create_dataset import CreateDatasetFacadeStep
@@ -76,5 +79,15 @@ if __name__ == '__main__':
     )
 
     pipeline.add_processing_step(evaluation_step)
+
+    batch_transform_step = BatchTransformFacadeStep(
+        model=get_trained_model_as_param(training_step),
+        data=Param(
+            name='data',
+            source='../../datasets/abalone/batch',
+        ),
+    )
+
+    pipeline.add_batch_transform_step(batch_transform_step)
 
     pipeline.execute()

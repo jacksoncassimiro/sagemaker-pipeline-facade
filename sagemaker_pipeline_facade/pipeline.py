@@ -4,6 +4,12 @@ import pytz
 from sagemaker.workflow.pipeline import Pipeline as SageMakerPipeline
 
 from sagemaker_pipeline_facade import FacadeStep, Param
+from sagemaker_pipeline_facade.register_step import (
+    RegisterFacadeStep
+)
+from sagemaker_pipeline_facade.register_step_parser import (
+    RegisterStepParser
+)
 from sagemaker_pipeline_facade.batch_transform_step import (
     BatchTransformFacadeStep
 )
@@ -97,3 +103,7 @@ class Pipeline:
         ).parse(step)
         self.steps.append(step.parsed_model_step)
         self.steps.append(step.parsed_transform_step)
+
+    def add_register_step(self, step: RegisterFacadeStep):
+        RegisterStepParser().parse(step)
+        self.steps.append(step.parsed_step)

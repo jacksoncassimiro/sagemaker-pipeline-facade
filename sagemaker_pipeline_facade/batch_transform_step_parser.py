@@ -23,7 +23,7 @@ class BatchTransformStepParser:
     def parse(self, step: BatchTransformFacadeStep):
         model = Model(
             image_uri=self.image_uri,
-            model_data=step.model.source,
+            model_data=step.model_data.source,
             sagemaker_session=self.pipeline_session,
             role=self.role,
         )
@@ -40,11 +40,11 @@ class BatchTransformStepParser:
             output_path=f'{self.base_s3_path}/transform/output',
         )
 
-        data_uri = step.data.source
+        data_uri = step.batch_data.source
 
         if not data_uri.startswith('s3://'):
             data_uri = sagemaker.s3.S3Uploader.upload(
-                local_path=step.data.source,
+                local_path=step.batch_data.source,
                 desired_s3_uri=f'{self.base_s3_path}/transform/data',
             )
 
@@ -56,6 +56,7 @@ class BatchTransformStepParser:
             ),
         )
 
+        step.model = model
         step.parsed_model_step = model_step
         step.parsed_transform_step = transform_step
 

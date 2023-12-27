@@ -1,20 +1,24 @@
 import os
 import pickle
 
-from sagemaker.processing import ProcessingInput, ProcessingOutput
-from sagemaker.sklearn import SKLearnProcessor
+from sagemaker.processing import ProcessingInput, ProcessingOutput, \
+    ScriptProcessor
+from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import ProcessingStep
+from sagemaker_pipeline_facade import (
+    LIB_PATH, DEFAULT_INSTANCE_TYPE, DEFAULT_INSTANCE_COUNT, PropertyParam
+)
+from sagemaker_pipeline_facade.processing_step import ProcessingFacadeStep
 
-from sagemaker_pipeline_facade import LIB_PATH
 
-
-class ProcessingParser:
-    def __init__(self, root_dir, role, pipeline_session):
+class ProcessingStepParser:
+    def __init__(self, root_dir, image_uri, role, pipeline_session):
         self.root_dir = root_dir
+        self.image_uri = image_uri
         self.role = role
         self.pipeline_session = pipeline_session
 
-    def parse(self, step):
+    def parse(self, step: ProcessingFacadeStep):
         step.code_dir = '/opt/ml/processing/input/code'
         step.input_dir = '/opt/ml/processing/input'
         step.output_dir = '/opt/ml/processing/output'
@@ -27,6 +31,15 @@ class ProcessingParser:
                 destination=f'{step.input_dir}/{item.name}'
             )
             for index, item in enumerate(step.inputs)
+        ]
+
+        property_files = [
+            PropertyFile(
+                name=f'{item.name}_property_file',
+                output_name=item.name,
+                path=f'{item.name}.json'
+            )
+            for item in step.outputs if isinstance(item, PropertyParam)
         ]
 
         processor = self.get_processor()
@@ -44,7 +57,9 @@ class ProcessingParser:
         )
 
         step.parsed_step = ProcessingStep(
-            name=step.name(), step_args=args
+            name=step.name(),
+            step_args=args,
+            property_files=property_files
         )
 
         return step.parsed_step
@@ -65,16 +80,16 @@ class ProcessingParser:
         return default_inputs
 
     def get_processor(self):
-        return SKLearnProcessor(
-            framework_version='1.2-1',
-            instance_type="ml.m5.xlarge",
-            instance_count=1,
+        return ScriptProcessor(
+            image_uri=self.image_uri,
+            command=['python3'],
+            instance_type=DEFAULT_INSTANCE_TYPE,
+            instance_count=DEFAULT_INSTANCE_COUNT,
             role=self.role,
             sagemaker_session=self.pipeline_session,
         )
 
-    @staticmethod
-    def export_processing_step(step):
+    def export_processing_step(self, step: ProcessingFacadeStep):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         export_dir = f'{current_dir}/export'
 
@@ -84,8 +99,12 @@ class ProcessingParser:
         with open(template, 'r') as file:
             content = file.read()
 
+        step_copied = self.copy(step)
+        for param in step_copied.inputs:
+            param.source = None
+
         content = content.replace(
-            '"<serialized-step>"', str(pickle.dumps(step))
+            '"<serialized-step>"', str(pickle.dumps(step_copied))
         )
 
         if not os.path.exists(export_dir):
@@ -97,3 +116,7 @@ class ProcessingParser:
             file.write(content)
 
         return step_file_path
+
+    @staticmethod
+    def copy(arg):
+        return pickle.loads(pickle.dumps(arg))

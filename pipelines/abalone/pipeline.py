@@ -85,7 +85,7 @@ if __name__ == '__main__':
             ProcessingOutput(output_name="test",
                              source="/opt/ml/processing/test"),
         ],
-        code="preprocessing.py",
+        code="create_dataset.py",
     )
 
     step_process = ProcessingStep(

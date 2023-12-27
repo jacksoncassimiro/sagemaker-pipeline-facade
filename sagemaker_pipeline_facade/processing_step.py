@@ -1,3 +1,5 @@
+import json
+import pathlib
 from abc import abstractmethod
 from typing import List
 
@@ -10,10 +12,11 @@ class ProcessingFacadeStep(FacadeStep):
     def __init__(
             self,
             inputs: List[Param] = None,
-            outputs: List[Param] = None,
+            outputs: List[Param] = None
     ):
+        super().__init__()
+
         self.script_path = None
-        self.parsed_step = None
         self.code_dir = None
         self.input_dir = None
         self.output_dir = None
@@ -24,17 +27,6 @@ class ProcessingFacadeStep(FacadeStep):
     @abstractmethod
     def execute(self):
         pass
-
-    def get_output_value_as_param(self, name, output_name, content_type=None):
-        source = (
-            self.parsed_step.properties.ProcessingOutputConfig
-            .Outputs[output_name].S3Output.S3Uri
-        )
-        return Param(
-            name=name,
-            source=source,
-            content_type=content_type
-        )
 
     def read_input_csv(self, input_name, file_name, **kwargs):
         return pd.read_csv(
@@ -51,3 +43,10 @@ class ProcessingFacadeStep(FacadeStep):
             f"{self.output_dir}/{output_name}/{output_file_name}",
             **kwargs
         )
+
+    def write_output_json(self, output_name, properties):
+        output_dir = f"{self.output_dir}/{output_name}"
+        pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+        file_path = f'{output_dir}/{output_name}.json'
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(properties))

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class Param:
     name: str = None
-    source: str = None
+    source: object = None
     destination: str = None
     content_type: str = None
 
